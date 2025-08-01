@@ -34,5 +34,6 @@ export default defineConfig([
   globalIgnores([
     "node_modules/*", // ignore its content
     "dist/*",
+      "package-lock.json",
   ]),
 ]);
