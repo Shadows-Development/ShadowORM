@@ -1,0 +1,31 @@
+name: Setup Project
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Run setup script
+        run: node scripts/setup.js
+
+      - name: Push updated files
+        run: |
+            git config user.name "ShadowBot"
+            git config user.email "bot@shadowdev.local"
+            git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}
+            git add .
+            git commit -m "chore: initialize project metadata from setup script" || echo "No changes"
+            git push
