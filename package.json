@@ -1,9 +1,16 @@
 {
-  "name": "@shadow-dev/template",
-  "version": "0.0.1",
-  "description": "ShadowDev project template.",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "name": "@shadow-dev/orm",
+  "version": "1.0.0",
+  "description": "Lightweight dynamic MySQL ORM designed for ShadowCore and modular apps.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "scripts": {
     "dev": "ts-node src/index.ts",
     "build": "tsc",
@@ -12,9 +19,22 @@
     "setup": "node scripts/setup.js",
     "test": "jest"
   },
-  "author": "Shadows Development",
-  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Shadows-Development/ShadowORM.git"
+  },
+  "author": "Shadow Development LLC",
+  "license": "LGPL-3.0-or-later",
+  "keywords": [
+    "orm",
+    "mysql",
+    "typescript",
+    "lightweight",
+    "shadowcore",
+    "shadow-dev"
+  ],
   "devDependencies": {
+    "@eslint/json": "^0.13.1",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.1.0",
     "@typescript-eslint/eslint-plugin": "^8.38.0",
@@ -27,6 +47,6 @@
     "typescript-eslint": "^8.38.0"
   },
   "dependencies": {
-    "@eslint/json": "^0.13.1"
+    "mysql2": "^3.14.3"
   }
 }

@@ -1,1 +1,2 @@
-console.log("Hello from ShadowDev Template!");
+export * from './core';
+export * from './utils'
