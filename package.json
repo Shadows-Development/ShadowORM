@@ -4,6 +4,7 @@
   "description": "Lightweight dynamic MySQL ORM designed for ShadowCore and modular apps.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "files": ["dist"],
   "exports": {
     ".": {
       "import": "./dist/index.js",
@@ -12,6 +13,7 @@
     }
   },
   "scripts": {
+    "prepublishOnly": "npm run build",
     "dev": "ts-node src/index.ts",
     "build": "tsc",
     "lint": "eslint . --ext .ts",
