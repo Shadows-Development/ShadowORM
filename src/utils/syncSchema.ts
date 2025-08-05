@@ -1,28 +1,15 @@
 import {getAllModels, getPool} from '../core'
 
-export async function syncSchema() {
-    const models = getAllModels();
-    const pool = getPool();
+function normalizeField(value: string | { type: string; pk?: boolean; default?: any; required?: boolean }) {
+    if (typeof value === "string") return { type: value };
+    return value;
+}
 
-    for (const [name, model] of models.entries()) {
-        const columns: string[] = [];
-        const foreignKeys: string[] = [];
-
-        for (const [key, type] of Object.entries(model.schema)) {
-            columns.push(`\`${key}\` ${mapType(type)}`);
-        }
-
-        for (const fk of model.foreignKeys) {
-            foreignKeys.push(`FOREIGN KEY (\`${fk.column}\`) REFERENCES ${fk.reference}`);
-        }
-
-        const columnDefs = [...columns, ...foreignKeys].join(",\n  ");
-        const sql = `CREATE TABLE IF NOT EXISTS \`${name}\` (\n  ${columnDefs}\n);`;
-
-        await pool.execute(sql);
-    }
-
-    console.log("Γ£à Schema synchronized.");
+function formatDefault(value: any): string {
+    if (typeof value === "string") return `'${value}'`;
+    if (typeof value === "boolean") return value ? "TRUE" : "FALSE";
+    if (value === null || value === undefined) return "NULL";
+    return value.toString();
 }
 
 function mapType(type: string): string {
@@ -31,7 +18,35 @@ function mapType(type: string): string {
         case "json": return "JSON";
         case "datetime": return "DATETIME";
         case "number": return "INT";
+        case "float": return "FLOAT";
         case "boolean": return "BOOLEAN";
-        default: return type; // fallback for raw SQL types if provided
+        default: return type;
     }
+}
+
+export async function syncSchema() {
+    const models = getAllModels();
+    const pool = getPool();
+
+    for (const [name, model] of models.entries()) {
+        const columns: string[] = [];
+
+        for (const [key, value] of Object.entries(model.schema)) {
+            const { type, pk, default: def, required } = normalizeField(value);
+            let col = `\`${key}\` ${mapType(type)}`;
+            if (required || pk) col += " NOT NULL";
+            if (pk) col += " PRIMARY KEY";
+            if (def !== undefined) col += ` DEFAULT ${formatDefault(def)}`;
+            columns.push(col);
+        }
+
+        const fks = model.foreignKeys.map(
+            fk => `FOREIGN KEY (\`${fk.column}\`) REFERENCES ${fk.reference}`
+        );
+
+        const sql = `CREATE TABLE IF NOT EXISTS \`${name}\` (\n  ${[...columns, ...fks].join(',\n  ')}\n);`;
+        await pool.execute(sql);
+    }
+
+    console.log("✅ Schema synchronized.");
 }
