@@ -1,16 +1,47 @@
 // Repository.ts
 import { getPool } from "./Database";
 import { Model } from "./Model";
+import {ResultSetHeader} from "mysql2";
 
 export class Repository<T extends object> {
-    constructor(public readonly model: Model<T>) {}
+    constructor(public readonly model: Model<T>) {
+        // Validate PK at construction
+        const pk = this.getPrimaryKeyField();
+        if (!pk) {
+            throw new Error(`Model "${model.name}" has no primary key defined (pk: true)`);
+        }
+    }
 
-    async create(data: T): Promise<void> {
+    async create(data: T): Promise<T> {
         const keys = Object.keys(data);
-        const sql = `INSERT INTO \`${this.model.name}\` (${keys.join(",")}) VALUES (${keys.map(() => "?").join(",")})`;
+        if (keys.length === 0) throw new Error("create(): empty data");
+
+        const sql = `INSERT INTO \`${this.model.name}\` (${keys.map(k => `\`${k}\``).join(",")})
+                     VALUES (${keys.map(() => "?").join(",")})`;
         const values = keys.map((key) => this.normalizeValue((data as any)[key]));
 
-        await getPool().execute(sql, values);
+        const [res] = await getPool().execute<ResultSetHeader>(sql, values);
+
+        const pk = this.getPrimaryKeyField();
+
+        // If PK exists in data, refetch using it
+        if (pk && (data as any)[pk] != null) {
+            const row = await this.findOne({ [pk]: (data as any)[pk] } as Partial<T>);
+            if (row) return row;
+        }
+
+        // If PK is auto-increment and insertId is present
+        if (pk && res.insertId && res.insertId !== 0) {
+            const row = await this.findOne({ [pk]: res.insertId as any } as Partial<T>);
+            if (row) return row;
+        }
+
+        // Fallback — return data + insertId if available
+        if (res.insertId && res.insertId !== 0) {
+            return { ...(data as any), id: res.insertId } as T;
+        }
+
+        return data;
     }
 
 
@@ -29,14 +60,22 @@ export class Repository<T extends object> {
         return results.length > 0 ? results[0] : null;
     }
 
-    async update(where: Partial<T>, data: Partial<T>): Promise<void> {
+    async update(where: Partial<T>, data: Partial<T>): Promise<T | null> {
+        if (!where || Object.keys(where).length === 0) {
+            throw new Error("update(): missing WHERE");
+        }
+
         const setKeys = Object.keys(data);
-        const setClause = setKeys.map(k => `${k} = ?`).join(", ");
+        if (setKeys.length === 0) return this.findOne(where);
+
+        const setClause = setKeys.map(k => `\`${k}\` = ?`).join(", ");
         const setValues = setKeys.map(k => this.normalizeValue((data as any)[k]));
 
         const { sql: whereClause, params: whereValues } = this.buildWhereClause(where);
         const query = `UPDATE \`${this.model.name}\` SET ${setClause} ${whereClause}`;
         await getPool().execute(query, [...setValues, ...whereValues.map(this.normalizeValue)]);
+
+        return this.findOne(where);
     }
 
     async delete(where: Partial<T>): Promise<void> {
@@ -77,5 +116,13 @@ export class Repository<T extends object> {
             sql: `WHERE ${conditions}`,
             params: values,
         };
+    }
+    private getPrimaryKeyField(): keyof T | undefined {
+        for (const key of Object.keys(this.model.schema) as (keyof T)[]) {
+            if ((this.model.schema as any)[key]?.pk) {
+                return key;
+            }
+        }
+        return undefined;
     }
 }
