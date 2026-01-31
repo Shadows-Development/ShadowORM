@@ -1,3 +1,4 @@
-export * from './getNextId';
-export * from './syncSchema'
-export * from './types';
+export * from './getNextId.js';
+export * from './syncSchema.js'
+export * from './types.js';
+export * from './genNewUUID.js';
