@@ -9,14 +9,42 @@ import { Model } from "../core/Model.js";
 /* ---------------------------------- */
 
 function mapType(type: string): string {
-    switch (type) {
+    switch (type.toLowerCase()) {
+        // strings
         case "string": return "VARCHAR(255)";
-        case "json": return "JSON";
-        case "datetime": return "DATETIME";
+        case "text": return "TEXT";
+        case "mediumtext": return "MEDIUMTEXT";
+        case "longtext": return "LONGTEXT";
+
+        // numbers
         case "int": return "INT";
+        case "bigint": return "BIGINT";
         case "float": return "FLOAT";
+        case "double": return "DOUBLE";
+        case "decimal": return "DECIMAL(10,2)";
+
+        // boolean
         case "boolean": return "BOOLEAN";
-        default: return type;
+
+        // dates
+        case "date": return "DATE";
+        case "time": return "TIME";
+        case "datetime": return "DATETIME";
+        case "timestamp": return "TIMESTAMP";
+
+        // json
+        case "json": return "JSON";
+
+        // binary
+        case "binary": return "BINARY(16)";
+        case "varbinary": return "VARBINARY(255)";
+
+        // uuid (convention)
+        case "uuid": return "CHAR(36)";
+
+        // passthrough (escape hatch)
+        default:
+            return type; // allows raw MySQL like "ENUM(...)", "VARCHAR(64)", etc.
     }
 }
 

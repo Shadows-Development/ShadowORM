@@ -8,7 +8,38 @@ export interface BaseSchema {
 /* Field definitions                   */
 /* ---------------------------------- */
 
-export type SimpleFieldType = "string" | "int" | "float" | "boolean" | "json" | "datetime";
+export type SimpleFieldType =
+// strings
+    | "string"
+    | "text"
+    | "mediumtext"
+    | "longtext"
+
+    // numbers
+    | "int"
+    | "bigint"
+    | "float"
+    | "double"
+    | "decimal"
+
+    // booleans
+    | "boolean"
+
+    // dates
+    | "date"
+    | "time"
+    | "datetime"
+    | "timestamp"
+
+    // json
+    | "json"
+
+    // binary
+    | "binary"
+    | "varbinary"
+
+    // misc
+    | "uuid";
 
 export interface FieldOptions {
     type: SimpleFieldType;
