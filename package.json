@@ -1,6 +1,6 @@
 {
   "name": "@shadow-dev/orm",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Lightweight dynamic MySQL ORM designed for ShadowCore and modular apps.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
