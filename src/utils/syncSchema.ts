@@ -103,9 +103,22 @@ function generateCreateTableSQL(model: Model<any>): string {
         columns.push(col);
     }
 
-    const fks = model.foreignKeys.map(fk =>
-        `FOREIGN KEY (\`${fk.column}\`) REFERENCES \`${fk.references.table}\`(\`${fk.references.column}\`)`
-    );
+    const fks = model.foreignKeys.map(fk => {
+        let sql =
+            `FOREIGN KEY (\`${fk.column}\`) ` +
+            `REFERENCES \`${fk.references.table}\`(\`${fk.references.column}\`)`;
+
+        if (fk.onDelete) {
+            sql += ` ON DELETE ${fk.onDelete}`;
+        }
+
+        if (fk.onUpdate) {
+            sql += ` ON UPDATE ${fk.onUpdate}`;
+        }
+
+        return sql;
+    });
+
 
     return `
 CREATE TABLE \`${model.name}\` (
