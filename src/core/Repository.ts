@@ -105,11 +105,19 @@ export class Repository<T extends object> {
         return rows as T[];
     }
 
+    async findAll(): Promise<T[]> {
+        return this.find({});
+    }
+
     async findOne(where: Partial<T>): Promise<T | null> {
         const { sql, params } = this.buildWhereClause(where);
         const query = `SELECT * FROM \`${this.model.name}\` ${sql} LIMIT 1`;
         const [rows] = await getPool().execute(query, params);
         return (rows as T[])[0] ?? null;
+    }
+
+    async findFirst(where: Partial<T> = {}): Promise<T | null> {
+        return this.findOne(where);
     }
 
     async count(where: Partial<T> = {}): Promise<number> {
@@ -141,6 +149,34 @@ export class Repository<T extends object> {
 
         const [rows] = await getPool().execute(query, ids);
         return rows as T[];
+    }
+
+    async paginate(
+        where: Partial<T> = {},
+        page = 1,
+        pageSize = 10
+    ): Promise<{ data: T[]; total: number; page: number; pageSize: number; totalPages: number }> {
+        const safePage = Math.max(1, page);
+        const safePageSize = Math.max(1, pageSize);
+        const offset = (safePage - 1) * safePageSize;
+
+        const { sql, params } = this.buildWhereClause(where);
+        const query = `
+            SELECT * FROM \`${this.model.name}\`
+            ${sql}
+            LIMIT ? OFFSET ?
+        `;
+
+        const [rows] = await getPool().execute(query, [...params, safePageSize, offset]);
+        const total = await this.count(where);
+
+        return {
+            data: rows as T[],
+            total,
+            page: safePage,
+            pageSize: safePageSize,
+            totalPages: Math.ceil(total / safePageSize),
+        };
     }
 
     /* ---------------------------------- */
@@ -201,6 +237,26 @@ export class Repository<T extends object> {
         return res.affectedRows;
     }
 
+    async increment(where: Partial<T>, field: keyof T, by = 1): Promise<number> {
+        if (!where || Object.keys(where).length === 0) {
+            throw new Error("increment(): missing WHERE");
+        }
+
+        const { sql, params } = this.buildWhereClause(where);
+        const query = `
+            UPDATE \`${this.model.name}\`
+            SET \`${String(field)}\` = \`${String(field)}\` + ?
+            ${sql}
+        `;
+
+        const [res] = await getPool().execute<ResultSetHeader>(query, [by, ...params]);
+        return res.affectedRows;
+    }
+
+    async decrement(where: Partial<T>, field: keyof T, by = 1): Promise<number> {
+        return this.increment(where, field, -Math.abs(by));
+    }
+
     /* ---------------------------------- */
     /* DELETE                              */
     /* ---------------------------------- */
@@ -216,6 +272,11 @@ export class Repository<T extends object> {
         const query = `DELETE FROM \`${this.model.name}\` ${sql}`;
         const [res] = await getPool().execute<ResultSetHeader>(query, params);
         return res.affectedRows;
+    }
+
+    async truncate(): Promise<void> {
+        const query = `TRUNCATE TABLE \`${this.model.name}\``;
+        await getPool().execute(query);
     }
 
     /* ---------------------------------- */
@@ -252,6 +313,16 @@ export class Repository<T extends object> {
 
         await getPool().execute(sql, values);
         return (await this.findOne({ [pk as keyof T]: (data as any)[pk] } as Partial<T>))!;
+    }
+
+    async findOrCreate(where: Partial<T>, data: T): Promise<{ record: T; created: boolean }> {
+        const existing = await this.findOne(where);
+        if (existing) {
+            return { record: existing, created: false };
+        }
+
+        const created = await this.create(data);
+        return { record: created, created: true };
     }
 
     /* ---------------------------------- */
