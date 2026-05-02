@@ -61,13 +61,8 @@ export class Repository<T extends object> {
             VALUES ${placeholders}
         `;
 
-        const [res] = await getPool().execute<ResultSetHeader>(sql, values);
-        const pk = this.getPrimaryKeyField();
-
-        if (!pk || !res.insertId) return rows;
-
-        const ids = rows.map((_, i) => res.insertId + i);
-        return this.findManyByIds(ids as any);
+        await getPool().execute<ResultSetHeader>(sql, values);
+        return rows;
     }
 
     async bulkInsert(rows: T[]): Promise<number> {
@@ -102,7 +97,7 @@ export class Repository<T extends object> {
         const { sql, params } = this.buildWhereClause(where);
         const query = `SELECT * FROM \`${this.model.name}\` ${sql}`;
         const [rows] = await getPool().execute(query, params);
-        return rows as T[];
+        return (rows as any[]).map(row => this.normalizeReadRow(row)) as T[];
     }
 
     async findAll(): Promise<T[]> {
@@ -113,7 +108,8 @@ export class Repository<T extends object> {
         const { sql, params } = this.buildWhereClause(where);
         const query = `SELECT * FROM \`${this.model.name}\` ${sql} LIMIT 1`;
         const [rows] = await getPool().execute(query, params);
-        return (rows as T[])[0] ?? null;
+        const row = (rows as any[])[0];
+        return row ? (this.normalizeReadRow(row) as T) : null;
     }
 
     async findFirst(where: Partial<T> = {}): Promise<T | null> {
@@ -148,7 +144,7 @@ export class Repository<T extends object> {
         `;
 
         const [rows] = await getPool().execute(query, ids);
-        return rows as T[];
+        return (rows as any[]).map(row => this.normalizeReadRow(row)) as T[];
     }
 
     async paginate(
@@ -171,7 +167,7 @@ export class Repository<T extends object> {
         const total = await this.count(where);
 
         return {
-            data: rows as T[],
+            data: (rows as any[]).map(row => this.normalizeReadRow(row)) as T[],
             total,
             page: safePage,
             pageSize: safePageSize,
@@ -356,13 +352,37 @@ export class Repository<T extends object> {
         const keys = Object.keys(where);
         if (keys.length === 0) return { sql: "", params: [] };
 
-        const conditions = keys.map(k => `\`${k}\` = ?`).join(" AND ");
-        const values = keys.map(k => (where as any)[k]);
+        const conditions = keys.map(k => {
+            const value = (where as any)[k];
+            return value === null ? `\`${k}\` IS NULL` : `\`${k}\` = ?`;
+        }).join(" AND ");
+        const values = keys
+            .map(k => (where as any)[k])
+            .filter(value => value !== null);
 
         return {
             sql: `WHERE ${conditions}`,
             params: values,
         };
+    }
+
+    private normalizeReadRow(row: any): any {
+        const result = { ...row };
+
+        for (const key of Object.keys(this.model.normalizedSchema) as (keyof T)[]) {
+            const field = this.model.normalizedSchema[key];
+            const rawValue = result[key as string];
+
+            if (field?.type === "json" && rawValue != null && typeof rawValue === "string") {
+                try {
+                    result[key as string] = JSON.parse(rawValue);
+                } catch {
+                    // keep raw value if parsing fails
+                }
+            }
+        }
+
+        return result;
     }
 
     private getPrimaryKeyField(): keyof T {
