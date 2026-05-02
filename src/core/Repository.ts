@@ -100,6 +100,10 @@ export class Repository<T extends object> {
         return (rows as any[]).map(row => this.normalizeReadRow(row)) as T[];
     }
 
+    async findMany(where: Partial<T> = {}): Promise<T[]> {
+        return this.find(where);
+    }
+
     async findAll(): Promise<T[]> {
         return this.find({});
     }
@@ -113,7 +117,8 @@ export class Repository<T extends object> {
     }
 
     async findFirst(where: Partial<T> = {}): Promise<T | null> {
-        return this.findOne(where);
+        const rows = await this.findMany(where);
+        return rows[0] ?? null;
     }
 
     async count(where: Partial<T> = {}): Promise<number> {
